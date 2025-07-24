@@ -1,0 +1,415 @@
+
+# Python : Set up virtual environment
+## Update the system
+sudo apt update
+
+
+## Upgrade installed software
+sudo apt upgrade -y
+
+
+## Install virtual environment tool
+sudo apt install python3-venv -y
+
+
+## Create a virtual environment - crypto_venv
+python3 -m venv crypto_venv
+
+
+## Activate the virtual environment
+source crypto_venv/bin/activate
+
+
+## Check the python library in virtual environment
+pip list
+
+
+## Install the required Python libraries
+pip install requests
+pip install kafka-python
+pip install psycopg2-binary
+pip install scikit-learn
+
+
+## Change the encoding to en_US.UTF-8
+sudo locale-gen en_US.UTF-8
+sudo update-locale LANG=en_US.UTF-8
+
+
+
+----------------------------------------
+# Kafka : Installation
+
+## Download Kafka 3.7.2
+wget  https://downloads.apache.org/kafka/3.7.2/kafka_2.12-3.7.2.tgz
+
+
+## Extracts the Kafka compressed file
+tar -xzf kafka_2.12-3.7.2.tgz
+
+
+## Delete and rename the folder name and then move into that folder
+rm kafka_2.12-3.7.2.tgz 
+mv kafka_2.12-3.7.2 kafka 
+cd kafka kafka
+
+
+## Installs Java Development Kit (JDK) version 11
+sudo apt install openjdk-11-jdk
+java -version
+
+
+## Starts the ZooKeeper server
+bin/zookeeper-server-start.sh config/zookeeper.properties
+
+
+----------------------------------------
+# Kafka : Start Kafka
+## Move into kafka folder and start Kafka 
+cd kafka
+bin/kafka-server-start.sh config/server.properties
+
+
+
+----------------------------------------
+# Kafka : Topic
+## Move into kafka and create cryptoPrices Topic 
+cd kafka
+bin/kafka-topics.sh --create --topic cryptoPrices --bootstrap-server localhost:9092 --partitions 1 --replication-factor 1
+
+
+## Check cryptoPrices Topic 
+bin/kafka-topics.sh --list --bootstrap-server localhost:9092
+
+
+## Read cryptoPrices Topic 
+bin/kafka-console-consumer.sh --topic cryptoPrices --bootstrap-server localhost:9092
+
+
+## Open Kafka producer console that sends messages
+cd kafka
+bin/kafka-console-producer.sh --topic cryptoPrices --bootstrap-server localhost:9092
+
+
+
+----------------------------------------
+# Kafka : Background
+## Starts ZooKeeper in the background
+nohup bin/zookeeper-server-start.sh config/zookeeper.properties &
+
+
+## Starts Kafka in the background
+nohup bin/kafka-server-start.sh config/server.properties &
+
+
+## Command to see the processes in the background
+jobs
+
+
+
+----------------------------------------
+# Python : Crypto Price to Kafka
+## Go to Crypto directory
+cd Crypto
+
+
+## Create a crypto_producer.py file
+vi crypto_producer.py
+
+
+## Execute crypto_producer.py
+python3 crypto_producer.py 
+
+
+## Execute crypto_producer.py in the background
+nohup python3 crypto_producer.py &
+
+
+## Read cryptoPrices Topic 
+cd ~/kafka 
+bin/kafka-console-consumer.sh --topic cryptoPrices --bootstrap-server localhost:9092
+
+
+
+----------------------------------------
+# PostgreSQL : Installation 
+## Installs PostgreSQL and its additional tools 
+sudo apt install postgresql postgresql-contrib -y
+
+
+## Starts the PostgreSQL database server
+sudo systemctl start postgresql
+
+
+## (Option) Re-starts the PostgreSQL database server
+sudo systemctl restart postgresql
+
+
+## Opens the PostgreSQL terminal
+sudo -u postgres psql
+
+
+## Creates a new database called cryptodb
+CREATE DATABASE cryptodb;
+
+
+## Creates a new crypto user
+CREATE USER crypto WITH PASSWORD 'crypto123';
+
+
+## Gives the crypto user full permission
+GRANT ALL PRIVILEGES ON DATABASE cryptodb TO crypto;
+
+
+## Connects to the cryptodb database 
+\c cryptodb
+
+
+## Creates a new table called crypto_prices
+CREATE TABLE crypto_prices 
+( symbol TEXT, timestamp TIMESTAMP, price FLOAT );
+
+
+## Creates a new table called crypto_prediction 
+CREATE TABLE crypto_prediction 
+( symbol TEXT, timestamp TIMESTAMP, predicted_price FLOAT );
+
+
+## Allows the crypto user to fully access the tables
+GRANT ALL PRIVILEGES ON TABLE crypto_prices, crypto_prediction TO crypto;
+
+
+## Shows the structure of the crypto_prices & crypto_prediction 
+\d crypto_prices
+\d crypto_prediction 
+
+
+
+----------------------------------------
+# Python : Crypto Price to PostgreSQL  
+## Go to Crypto directory
+cd ~/Crypto
+
+
+## Create a crypto_consumer.py file
+vi crypto_consumer.py
+
+
+## Execute crypto_consumer.py 
+python3 crypto_consumer.py
+
+
+
+## Open the PostgreSQL terminal
+sudo -u postgres psql
+
+
+## Connect to database
+\c cryptodb
+
+
+## Run SQL to see if data has been inserted into the table
+SELECT * FROM crypto_prices;
+
+
+## Execute crypto_consumer.py in the background
+nohup python3 crypto_consumer.py &
+
+
+## Check the jobs in the background
+jobs
+
+
+
+----------------------------------------
+# PostgreSQL : Basic SQL commands
+## Opens the PostgreSQL terminal
+sudo -u postgres psql
+
+
+## (Option) If you want to connect using the crypto user we created, enter the command below and then type the password when prompted
+psql -h localhost -U crypto -d cryptodb
+
+
+## Connect to database
+\c cryptodb
+
+
+## SQL Commands
+SELECT * FROM crypto_prices;
+
+SELECT timestamp, price FROM crypto_prices;
+
+SELECT * FROM crypto_prices WHERE symbol = 'BTC';
+
+SELECT max(price) as value FROM crypto_prices WHERE symbol = 'BTC';
+
+SELECT max(price) FROM crypto_prices WHERE symbol = 'BTC';
+
+SELECT * FROM crypto_prices WHERE timestamp >= NOW() - INTERVAL '10 MINUTES';
+
+SELECT * FROM crypto_prices WHERE symbol = 'BTC' ORDER BY timestamp ;
+
+SELECT * FROM crypto_prices WHERE symbol = 'BTC' ORDER BY timestamp DESC;
+
+SELECT symbol, MAX(price) AS value FROM crypto_prices GROUP BY symbol;
+
+
+
+----------------------------------------
+# Python : Predict Crypto Price
+## Go to Crypto directory
+cd ~/Crypto
+
+
+## Create a crypto_prediction.py file
+vi crypto_prediction.py
+
+
+## Execute crypto_prediction.py 
+python3 crypto_prediction.py
+
+
+## Open the PostgreSQL terminal
+sudo -u postgres psql
+
+
+## Connect to database
+\c cryptodb
+
+
+## Run SQL to see if predicted price has been inserted into the table
+SELECT * FROM crypto_prediction ;
+
+
+## Execute crypto_prediction.py in the background
+nohup python3 crypto_prediction.py &
+
+
+
+----------------------------------------
+# Grafana : Installation
+## Installs a helper package
+sudo apt install -y software-properties-common
+
+
+## Adds Grafana’s official repository to system
+sudo add-apt-repository "deb https://packages.grafana.com/oss/deb stable main"
+
+
+## Adds Grafana’s GPG key to verify package authenticity
+wget -q -O - https://packages.grafana.com/gpg.key | sudo apt-key add -
+
+
+
+## Refreshes the list of available software packages
+sudo apt update
+
+
+## Installs Grafana on the system
+sudo apt install grafana -y
+
+
+## Starts the Grafana server
+sudo systemctl start grafana-server
+
+
+## Makes Grafana start automatically when the system boots
+sudo systemctl enable grafana-server
+
+
+
+
+## BTC Price Trend
+SELECT
+  $__time(timestamp),
+  price
+FROM crypto_prices
+WHERE symbol = 'BTC'
+ORDER BY timestamp
+
+
+
+## ETH Price Trend
+SELECT
+  $__time(timestamp),
+  price
+FROM crypto_prices
+WHERE symbol = 'ETH'
+ORDER BY timestamp
+
+
+
+## 24H High & Low Price
+SELECT
+  symbol || ' high_24h' AS metric,
+  MAX(price) AS value
+FROM crypto_prices
+WHERE timestamp >= NOW() - INTERVAL '24 HOURS'
+GROUP BY symbol
+
+UNION
+
+SELECT
+  symbol || ' low_24h' AS metric,
+  MIN(price) AS value
+FROM crypto_prices
+WHERE timestamp >= NOW() - INTERVAL '24 HOURS'
+GROUP BY symbol
+
+
+
+## 24H Price Change (%)
+WITH changes AS (
+  SELECT
+    symbol,
+    (MAX(price) - MIN(price)) / NULLIF(MIN(price), 0) * 100 AS percent_change
+  FROM crypto_prices
+  WHERE timestamp >= NOW() - INTERVAL '24 HOUR'
+  GROUP BY symbol
+)
+SELECT
+  symbol,
+  ROUND(percent_change::numeric, 2) AS change_pct
+FROM changes
+
+
+
+## BTC Prediction Trend
+SELECT $__time(timestamp), predicted_price
+FROM crypto_prediction
+WHERE symbol = 'BTC'
+
+
+
+## ETH Prediction Trend
+SELECT $__time(timestamp), predicted_price
+FROM crypto_prediction
+WHERE symbol = 'ETH'
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
