@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rock-Paper-Scissors + Kafka Logger</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gradient-to-br from-indigo-100 to-white min-h-screen flex items-center justify-center text-gray-800">
+  <div class="p-8 md:p-12 bg-white rounded-3xl shadow-2xl max-w-xl w-full text-center animate-fade-in">
+    <h1 class="text-4xl font-extrabold text-indigo-600 mb-4 tracking-tight">✊✌️🖐 Rock-Paper-Scissors</h1>
+    <p class="text-gray-600 mb-4 text-lg">Your move will be logged to Kafka!</p>
+
+    <input type="text" id="username" placeholder="Enter your name (default: MysteryHand)" class="mb-6 px-4 py-2 w-full rounded-lg border border-gray-300" />
+
+    <div class="grid grid-cols-3 gap-4">
+      <button onclick="play('Rock')" class="py-3 bg-pink-500 text-white font-semibold rounded-xl shadow hover:bg-pink-600 transition">✊ Rock</button>
+      <button onclick="play('Paper')" class="py-3 bg-blue-500 text-white font-semibold rounded-xl shadow hover:bg-blue-600 transition">🖐 Paper</button>
+      <button onclick="play('Scissors')" class="py-3 bg-green-500 text-white font-semibold rounded-xl shadow hover:bg-green-600 transition">✌️ Scissors</button>
+    </div>
+
+    <div class="mt-6 text-lg" id="resultText">Make your choice!</div>
+    <div class="mt-2 text-sm text-indigo-700" id="streak">Current win streak: 0</div>
+    <p id="status" class="text-sm text-gray-500 mt-2 h-6"></p>
+  </div>
+
+  <script>
+    let winStreak = 0;
+
+    function play(userChoice) {
+      const choices = ['Rock', 'Paper', 'Scissors'];
+      const computerChoice = choices[Math.floor(Math.random() * 3)];
+
+      let result;
+      if (userChoice === computerChoice) {
+        result = "Draw";
+      } else if (
+        (userChoice === 'Rock' && computerChoice === 'Scissors') ||
+        (userChoice === 'Paper' && computerChoice === 'Rock') ||
+        (userChoice === 'Scissors' && computerChoice === 'Paper')
+      ) {
+        result = "Win";
+        winStreak++;
+      } else {
+        result = "Lose";
+        winStreak = 0;
+      }
+
+      const user = document.getElementById("username").value.trim() || "MysteryHand";
+
+      const resultText = `👤 ${user}: ${userChoice} vs 🤖 Computer: ${computerChoice} → ${result}`;
+      document.getElementById("resultText").innerText = resultText;
+      document.getElementById("streak").innerText = `Current win streak: ${winStreak}`;
+
+      sendEvent(user, userChoice, computerChoice, result);
+    }
+
+    function sendEvent(user, userChoice, computerChoice, result) {
+      const status = document.getElementById("status");
+      status.innerText = "⏳ Sending event...";
+
+      const url = `http://ec2-54-158-2-129.compute-1.amazonaws.com:5000/click` +
+                  `?user=${encodeURIComponent(user)}` +
+                  `&user_choice=${encodeURIComponent(userChoice)}` +
+                  `&computer_choice=${encodeURIComponent(computerChoice)}` +
+                  `&result=${encodeURIComponent(result)}`;
+
+      fetch(url)
+        .then(res => {
+          if (!res.ok) throw new Error("HTTP error");
+          return res.json();
+        })
+        .then(data => {
+          status.innerText = `✅ Event sent to Kafka!`;
+        })
+        .catch(() => {
+          status.innerText = "❌ Failed to send event.";
+        });
+    }
+  </script>
+
+  <style>
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in {
+      animation: fade-in 0.7s ease-out both;
+    }
+  </style>
+</body>
+</html>
+
